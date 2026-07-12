@@ -73,18 +73,24 @@ def wrap_codex_prompt(message: str, req_id: str) -> str:
 
 
 def wrap_mimo_prompt(message: str, req_id: str) -> str:
+    """
+    Wrap a prompt for MiMo.
+
+    Important: do NOT put a bare `CCB_DONE: <id>` line in the instructions.
+    MiMo often has no session JSONL and we poll pane text; a bare DONE line in the
+    injected prompt is otherwise treated as completion immediately.
+    """
     message = (message or "").rstrip()
     return (
         f"{REQ_ID_PREFIX} {req_id}\n\n"
         f"{message}\n\n"
         "CRITICAL INSTRUCTIONS:\n"
         "1. Read the request carefully and understand what is being asked.\n"
-        "2. Think through your approach before responding. Include your reasoning, "
-        "trade-offs considered, and key decisions in your reply.\n"
+        "2. Think through your approach before responding. Include brief reasoning.\n"
         "3. Provide a COMPLETE response — do not truncate or leave partial output.\n"
         "4. Your response MUST be self-contained and actionable.\n"
-        "5. End your reply with this exact final line (verbatim, on its own line):\n"
-        f"{DONE_PREFIX} {req_id}\n"
+        "5. After your answer, print one final line that is exactly "
+        f"this token (no quotes, no extra spaces): {DONE_PREFIX} {req_id}\n"
     )
 
 

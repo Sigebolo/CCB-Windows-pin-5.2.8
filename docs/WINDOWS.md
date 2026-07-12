@@ -40,6 +40,20 @@ grok,claude,mimo,opencode
 - Project: `.ccb/ccb.config`
 - Global fallback: `%USERPROFILE%\.ccb\ccb.config`
 
+## Start CCB in any project folder
+
+Team work is **per directory**. For a new codebase:
+
+```powershell
+cd D:\path\to\your\project
+ccb-bootstrap          # writes .ccb/ccb.config = grok,claude,mimo,opencode
+ccb                    # or: ccb -a
+```
+
+- First provider in config = **team leader** (current pane) — default `grok`
+- Run from a **clean WezTerm tab** (not nested inside an existing agent if possible)
+- Session files live under that project's `.ccb/` (gitignored)
+
 ## Smoke checks
 
 ```powershell
@@ -50,4 +64,4 @@ ccb-ping mimo
 ccb-ping opencode
 ```
 
-If MiMo inbound fails, ensure a live pane titled `CCB-Mimo` exists (`ccb` four-pane layout), not only the inbox under `~\.mimocode\inbox`.
+If MiMo inbound fails, ensure a live MiMo pane exists (`MiMoCode` / `CCB-Mimo` title). Pane-poll ignores the injected instruction text when detecting `CCB_DONE`.

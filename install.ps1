@@ -259,7 +259,8 @@ function Install-Native {
     "lask", "lping", "lpend",
     "dask", "dping", "dpend",
     "xask", "xping", "xpend",
-    "ask", "askd", "ccb-ping", "pend", "autonew", "ccb-completion-hook", "maild"
+    "mask", "kask",
+    "ask", "askd", "ccb-ping", "ccb-bootstrap", "pend", "autonew", "ccb-completion-hook", "maild"
   )
 
   # In MSYS/Git-Bash, invoking the script file directly will honor the shebang.

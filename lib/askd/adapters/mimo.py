@@ -28,9 +28,10 @@ from masksd_session import MimoProjectSession, compute_session_key, load_project
 from mimo_comm import (
     MiMoLogReader,
     MiMoSessionManager,
+    count_done_lines,
     find_mimo_pane,
     inbox_dir,
-    poll_pane_for_done,
+    pane_reply_is_complete,
     replies_dir,
 )
 from completion_hook import (
@@ -197,11 +198,52 @@ class MimoAdapter(BaseProviderAdapter):
         pane_check_interval = float(
             os.environ.get("CCB_MASKD_PANE_CHECK_INTERVAL", "5.0" if is_windows() else "2.0")
         )
-        anchor_collect_grace = time.time() + 2.0
+        anchor_collect_grace = time.time() + 3.0
+        get_text = getattr(backend, "get_text", None) or getattr(backend, "get_pane_content", None)
+
+        def _read_pane() -> str:
+            if not callable(get_text):
+                return ""
+            try:
+                return get_text(pane_id, 300) or ""
+            except TypeError:
+                try:
+                    return get_text(pane_id) or ""
+                except Exception:
+                    return ""
+            except Exception:
+                return ""
 
         # Inject after capturing log offset so we don't miss the user event.
-        backend.send_text(pane_id, prompt)
+        try:
+            # Escape any stuck mode in TUI before paste
+            send_key = getattr(backend, "send_key", None)
+            if callable(send_key):
+                try:
+                    send_key(pane_id, "Escape")
+                    time.sleep(0.15)
+                except Exception:
+                    pass
+            backend.send_text(pane_id, prompt)
+            # MiMo sometimes needs a second Enter after bracketed paste
+            if callable(send_key):
+                time.sleep(float(os.environ.get("CCB_MIMO_ENTER_DELAY", "0.35")))
+                try:
+                    send_key(pane_id, "Enter")
+                except Exception:
+                    pass
+        except Exception as exc:
+            _write_log(f"[ERROR] mimo inject failed: {exc}")
+            return "", False, False
+
         _write_log(f"[INFO] injected into mimo pane={pane_id} req_id={task.req_id}")
+
+        # Baseline AFTER paint so we ignore DONE tokens that only exist in the prompt paint.
+        time.sleep(float(os.environ.get("CCB_MIMO_BASELINE_DELAY", "0.6")))
+        baseline_text = _read_pane()
+        baseline_done = count_done_lines(baseline_text, task.req_id)
+        last_reply_snapshot = baseline_text
+        last_reply_changed_at = time.time()
 
         while True:
             if task.cancel_event and task.cancel_event.is_set():
@@ -220,17 +262,19 @@ class MimoAdapter(BaseProviderAdapter):
                 except Exception:
                     alive = False
                 if not alive:
-                    # Try rebind once
                     sess2, backend2, pane2 = self._ensure_bound_pane(work_dir)
                     if backend2 and pane2:
                         backend, pane_id = backend2, pane2
+                        get_text = getattr(backend, "get_text", None) or getattr(
+                            backend, "get_pane_content", None
+                        )
                         _write_log(f"[WARN] re-bound mimo pane -> {pane_id}")
                     else:
                         _write_log(f"[ERROR] mimo pane died req_id={task.req_id}")
                         break
                 last_pane_check = time.time()
 
-            # 1) Log reader path
+            # 1) Log reader path (preferred when MiMo writes JSONL)
             event, state = reader.wait_for_event(state, wait_step)
             if event is not None:
                 role, text = event
@@ -244,46 +288,53 @@ class MimoAdapter(BaseProviderAdapter):
                     chunks.append(text)
                     combined = "\n".join(chunks)
                     if is_done_text(combined, task.req_id):
-                        done_seen = True
                         reply = extract_reply_for_req(combined, task.req_id) or combined
-                        return reply, True, anchor_seen
+                        return reply, True, True
                     if combined != last_reply_snapshot:
                         last_reply_snapshot = combined
                         last_reply_changed_at = time.time()
                     elif combined and (time.time() - last_reply_changed_at >= idle_timeout):
-                        return combined, True, True
+                        # Idle only if we have non-empty assistant chunks after anchor
+                        if anchor_seen and len(combined.strip()) >= 3:
+                            return combined, True, True
 
-            # 2) Pane text path (works when MiMo has no JSONL logs)
-            get_text = getattr(backend, "get_text", None) or getattr(backend, "get_pane_content", None)
-            if callable(get_text):
-                try:
-                    pane_text = get_text(pane_id, 250) or ""
-                except TypeError:
-                    try:
-                        pane_text = get_text(pane_id) or ""
-                    except Exception:
-                        pane_text = ""
-                except Exception:
-                    pane_text = ""
-                if pane_text:
-                    if task.req_id in pane_text or REQ_ID_PREFIX in pane_text:
-                        anchor_seen = True
-                    if is_done_text(pane_text, task.req_id) or (
-                        task.req_id in pane_text and "CCB_DONE" in pane_text
-                    ):
+            # 2) Pane text path (no JSONL)
+            pane_text = _read_pane()
+            if pane_text:
+                if task.req_id in pane_text or REQ_ID_PREFIX in pane_text:
+                    anchor_seen = True
+                if pane_reply_is_complete(pane_text, task.req_id, baseline_done=baseline_done):
+                    reply = extract_reply_for_req(pane_text, task.req_id) or pane_text
+                    # Drop obvious UI chrome lines
+                    cleaned = "\n".join(
+                        ln
+                        for ln in reply.splitlines()
+                        if "CRITICAL INSTRUCTIONS" not in ln
+                        and not ln.strip().startswith("┃")
+                        and "esc interrupt" not in ln.lower()
+                    ).strip()
+                    return (cleaned or reply).strip(), True, True
+                if pane_text != last_reply_snapshot:
+                    last_reply_snapshot = pane_text
+                    last_reply_changed_at = time.time()
+                elif (
+                    anchor_seen
+                    and pane_text != baseline_text
+                    and (time.time() - last_reply_changed_at >= idle_timeout)
+                ):
+                    # Content settled but no DONE — only accept if substantially beyond baseline
+                    if len(pane_text) > len(baseline_text) + 20:
                         reply = extract_reply_for_req(pane_text, task.req_id) or pane_text
-                        return reply.strip(), True, True
-                    if pane_text != last_reply_snapshot:
-                        last_reply_snapshot = pane_text
-                        last_reply_changed_at = time.time()
-                    elif (
-                        anchor_seen
-                        and pane_text.strip()
-                        and (time.time() - last_reply_changed_at >= idle_timeout)
-                    ):
-                        return pane_text.strip(), True, True
+                        cleaned = "\n".join(
+                            ln
+                            for ln in reply.splitlines()
+                            if "CRITICAL INSTRUCTIONS" not in ln
+                            and not ln.strip().startswith("┃")
+                        ).strip()
+                        if cleaned and "CRITICAL INSTRUCTIONS" not in cleaned:
+                            return cleaned, True, True
 
-            # 3) Reply file (MiMo-side worker may write it)
+            # 3) Reply file
             if reply_path is not None and reply_path.exists():
                 try:
                     data = json.loads(reply_path.read_text(encoding="utf-8"))

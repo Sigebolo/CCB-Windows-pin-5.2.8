@@ -118,9 +118,12 @@ SCRIPTS_TO_LINK=(
   bin/xask
   bin/xpend
   bin/xping
+  bin/mask
+  bin/kask
   bin/ask
   bin/askd
   bin/ccb-ping
+  bin/ccb-bootstrap
   bin/pend
   bin/autonew
   bin/ccb-completion-hook

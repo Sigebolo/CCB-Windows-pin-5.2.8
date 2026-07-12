@@ -247,14 +247,78 @@ def _title_looks_like_mimo(title: str) -> bool:
         if t.startswith(prefix):
             return True
     low = t.lower().strip()
-    # Exact agent labels only
+    # Exact agent labels / MiMo TUI default titles
     if low in {"mimo", "mimocode", "mimo code", "mimo-code"}:
+        return True
+    if low.startswith("mimocode"):
+        return True
+    # MiMo Code often sets titles like "MC | <task summary>"
+    if low.startswith("mc |") or low.startswith("mc|"):
         return True
     # Trailing launcher labels: "... - mimo" / "... | mimo" (not snake_case mimo_xxx)
     if re.search(r"(?:^|[\s\|])-\s*mimo(?:code)?\s*$", low):
         return True
     if re.search(r"\|\s*mimo(?:code)?\s*$", low):
         return True
+    return False
+
+
+def count_done_lines(text: str, req_id: str) -> int:
+    """Count standalone CCB_DONE lines for req_id (not instructions mentioning the token)."""
+    from ccb_protocol import done_line_re
+
+    pat = done_line_re(req_id)
+    n = 0
+    for ln in (text or "").splitlines():
+        if pat.match(ln.rstrip()):
+            n += 1
+    return n
+
+
+def pane_reply_is_complete(text: str, req_id: str, *, baseline_done: int = 0) -> bool:
+    """
+    True when pane text shows a real completion for req_id.
+
+    Ignores DONE tokens that only exist because the prompt was painted on screen
+    (baseline_done). Accepts either:
+    - a new standalone CCB_DONE line for req_id (even if TUI chrome follows), or
+    - classic last-line is_done_text after assistant content.
+    """
+    if not text or not req_id:
+        return False
+    done_n = count_done_lines(text, req_id)
+    if done_n <= max(0, int(baseline_done)):
+        return False
+
+    # New DONE line appeared after baseline — treat as complete even if scrollback
+    # ends with MiMo status chrome (footer / mode line).
+    if done_n > max(0, int(baseline_done)):
+        body = extract_reply_for_req(text, req_id)
+        # Reject pure prompt paint: body empty or only scaffolding
+        if body:
+            stripped = re.sub(
+                r"critical instructions:.*?(?=\n\S|\Z)",
+                "",
+                body,
+                flags=re.I | re.S,
+            ).strip()
+            # Drop box-drawing / footer noise
+            cleaned_lines = [
+                ln
+                for ln in stripped.splitlines()
+                if ln.strip()
+                and not ln.strip().startswith("┃")
+                and "esc interrupt" not in ln.lower()
+                and "tab switch" not in ln.lower()
+            ]
+            if cleaned_lines:
+                return True
+        # Fallback: last-line DONE style
+        if is_done_text(text, req_id):
+            return True
+        # If DONE count increased and req_id is present, accept
+        return True
+
     return False
 
 

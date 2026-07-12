@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""
+ccb-bootstrap - Prepare a project folder for the default CCB team.
+
+Creates `.ccb/ccb.config` with the Windows-pin default squad
+(grok,claude,mimo,opencode) so `ccb` works in any folder.
+
+Usage:
+    ccb-bootstrap              # current directory
+    ccb-bootstrap D:\\path\\to\\project
+    ccb-bootstrap --force      # overwrite existing config
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+script_dir = Path(__file__).resolve().parent
+lib_dir = script_dir.parent / "lib"
+sys.path.insert(0, str(lib_dir))
+
+from compat import setup_windows_encoding
+
+setup_windows_encoding()
+
+from ccb_start_config import DEFAULT_PROVIDERS
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Bootstrap CCB team config in a project folder")
+    ap.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Project directory (default: cwd)",
+    )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing .ccb/ccb.config",
+    )
+    ap.add_argument(
+        "--providers",
+        default=",".join(DEFAULT_PROVIDERS),
+        help=f"Comma-separated providers (default: {','.join(DEFAULT_PROVIDERS)})",
+    )
+    args = ap.parse_args(argv)
+
+    root = Path(args.path).expanduser()
+    try:
+        root = root.resolve()
+    except Exception:
+        root = root.absolute()
+
+    if not root.is_dir():
+        print(f"[ERROR] Not a directory: {root}", file=sys.stderr)
+        return 1
+
+    cfg_dir = root / ".ccb"
+    cfg_file = cfg_dir / "ccb.config"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+
+    providers = [p.strip().lower() for p in str(args.providers).split(",") if p.strip()]
+    if not providers:
+        print("[ERROR] No providers specified", file=sys.stderr)
+        return 1
+
+    payload = ",".join(providers) + "\n"
+    if cfg_file.exists() and not args.force:
+        existing = cfg_file.read_text(encoding="utf-8", errors="replace").strip()
+        print(f"[OK] Already bootstrapped: {cfg_file}")
+        print(f"     providers: {existing}")
+        print("     (use --force to overwrite)")
+        print(f"     next: cd /d {root} && ccb")
+        return 0
+
+    cfg_file.write_text(payload, encoding="utf-8")
+    print(f"[OK] Wrote {cfg_file}")
+    print(f"     providers: {','.join(providers)}")
+    print("     first provider = team leader / current pane")
+    print(f"     next: cd /d {root}")
+    print("           ccb")
+    print("           # or: ccb -a")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

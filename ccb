@@ -4282,17 +4282,29 @@ def _split_provider_tokens(values: list[str]) -> list[str]:
     return raw_parts
 
 
+def _allowed_providers() -> set[str]:
+    """Single source of truth for CLI provider names (keep in sync with ccb_start_config)."""
+    try:
+        from ccb_start_config import _ALLOWED_PROVIDERS  # type: ignore
+
+        if isinstance(_ALLOWED_PROVIDERS, set) and _ALLOWED_PROVIDERS:
+            return set(_ALLOWED_PROVIDERS)
+    except Exception:
+        pass
+    return {"codex", "gemini", "opencode", "claude", "droid", "mimo", "kiro", "grok"}
+
+
 def _parse_providers(values: list[str], *, allow_unknown: bool = False) -> list[str]:
     """
     Parse providers from argv.
 
     Accept both:
-      - space-separated: `ccb codex gemini opencode claude droid`
-      - comma-separated: `ccb codex,gemini,opencode,claude,droid`
+      - space-separated: `ccb grok claude mimo opencode`
+      - comma-separated: `ccb grok,claude,mimo,opencode`
 
     Returns a de-duplicated list preserving order.
     """
-    allowed = {"codex", "gemini", "opencode", "claude", "droid"}
+    allowed = _allowed_providers()
     raw_parts = _split_provider_tokens(values)
 
     if not raw_parts:
@@ -4311,9 +4323,14 @@ def _parse_providers(values: list[str], *, allow_unknown: bool = False) -> list[
             unknown.append(p)
 
     if unknown and not allow_unknown:
+        allowed_s = ", ".join(sorted(allowed))
         print(f"❌ invalid provider(s): {', '.join(unknown)}", file=sys.stderr)
-        print("💡 use: ccb codex gemini opencode claude droid  (spaces)  or  ccb codex,gemini,opencode,claude,droid  (commas)", file=sys.stderr)
-        print("💡 allowed: codex, gemini, opencode, claude, droid, mimo, kiro, grok", file=sys.stderr)
+        print(
+            "💡 use: ccb grok claude mimo opencode  (spaces)  or  "
+            "ccb grok,claude,mimo,opencode  (commas)",
+            file=sys.stderr,
+        )
+        print(f"💡 allowed: {allowed_s}", file=sys.stderr)
         return []
 
     return parsed
@@ -4324,7 +4341,7 @@ def _parse_providers_with_cmd(values: list[str]) -> tuple[list[str], bool]:
     Parse providers from argv and treat "cmd" as a separate flag.
     Returns (providers, cmd_enabled).
     """
-    allowed = {"codex", "gemini", "opencode", "claude", "droid"}
+    allowed = _allowed_providers()
     raw_parts = _split_provider_tokens(values)
     if not raw_parts:
         return [], False
@@ -4347,9 +4364,14 @@ def _parse_providers_with_cmd(values: list[str]) -> tuple[list[str], bool]:
             unknown.append(p)
 
     if unknown:
+        allowed_s = ", ".join(sorted(allowed | {"cmd"}))
         print(f"❌ invalid provider(s): {', '.join(unknown)}", file=sys.stderr)
-        print("💡 use: ccb codex gemini opencode claude droid mimo kiro grok cmd  (spaces)  or  ccb codex,gemini,opencode,claude,droid,mimo,kiro,grok,cmd  (commas)", file=sys.stderr)
-        print("💡 allowed: codex, gemini, opencode, claude, droid, mimo, kiro, grok, cmd", file=sys.stderr)
+        print(
+            "💡 use: ccb grok claude mimo opencode cmd  (spaces)  or  "
+            "ccb grok,claude,mimo,opencode,cmd  (commas)",
+            file=sys.stderr,
+        )
+        print(f"💡 allowed: {allowed_s}", file=sys.stderr)
         return [], cmd_enabled
 
     return parsed, cmd_enabled
