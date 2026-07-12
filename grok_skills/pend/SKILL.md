@@ -1,14 +1,14 @@
 ---
 name: pend
-description: View latest reply from AI provider (gemini/codex/opencode/droid/claude/grok).
+description: View latest reply from a CCB provider (claude/mimo/opencode/...). Use after async ask completes or to audit last SMS.
 ---
 
 # CCB Pend
 
-View the latest reply from a provider.
-
-```
+```powershell
 pend <provider> [N]
+# fallback:
+python "$env:LOCALAPPDATA\codex-dual\bin\pend" <provider> 1
 ```
 
-Providers: `gemini`, `codex`, `opencode`, `droid`, `claude`, `grok`
+Shows the latest N conversation pairs for that provider.

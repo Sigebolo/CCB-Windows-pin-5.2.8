@@ -1,65 +1,99 @@
 ---
 name: ask
-description: Async via ask, end turn immediately; use when user explicitly delegates to any AI provider (gemini/codex/opencode/droid/mimo/claude); NOT for questions about the providers themselves.
+description: >
+  Send CCB SMS to teammate AI providers (claude/mimo/opencode/codex/gemini/droid/kiro).
+  Use when delegating work, asking review, cross-agent debug, or team coordination.
+  Grok is team leader (CCB_CALLER=grok). Works in any project folder after ccb-bootstrap + ccb.
 metadata:
-  short-description: Ask AI provider asynchronously
+  short-description: CCB ask teammates (Grok leader)
 ---
 
-# Ask AI Provider (Async)
+# CCB Ask (Grok = team leader)
 
-Send the user's request to specified AI provider asynchronously.
+Send a complete message to another AI provider via CCB. Prefer this over inventing your own IPC.
 
-## Usage
+## Default team (Windows pin)
 
-The first argument must be the provider name, followed by the message:
-- `gemini` - Send to Gemini
-- `codex` - Send to Codex
-- `opencode` - Send to OpenCode
-- `claude` - Send to Claude
-- `mimo` - Send to MiMo
-- `kiro` - Send to Kiro
-- `droid` - Send to Droid
+| Role | Provider |
+|------|----------|
+| **leader / designer** | `grok` (you) |
+| executor | `claude` |
+| inspiration | `mimo` |
+| reviewer | `opencode` |
+
+Config: `.ccb/ccb.config` → `grok,claude,mimo,opencode` (first = leader pane).
+
+## Providers
+
+- `claude` - implementation / primary coding
+- `mimo` - brainstorm / alternate view
+- `opencode` - review / second opinion
+- `codex` / `gemini` / `droid` / `kiro` - if mounted
 
 ## Execution (MANDATORY)
 
-**Do NOT use `run_in_background: true`** — it breaks stdin piping and the message is silently lost.
+**Do NOT use `run_in_background: true`** — stdin is lost and the message never arrives.
 
-```
-$env:CCB_CALLER='grok'; "$MESSAGE" | ask $PROVIDER
-```
+### Async (default for long tasks)
 
-For multi-line messages:
-
-```
+```powershell
+$env:CCB_CALLER = "grok"
 $MESSAGE = @"
-Your multi-line message here
+Complete request with context and why you are asking.
 "@
-$env:CCB_CALLER='grok'; $MESSAGE | ask $PROVIDER
+$MESSAGE | ask $PROVIDER
 ```
 
-## Rules
+If output contains `[CCB_ASYNC_SUBMITTED`:
+1. Reply one line: `<Provider> processing...`
+2. **END YOUR TURN IMMEDIATELY**
+3. Do not poll/sleep/`pend` in the same turn — wait for completion hook or later user turn
 
-- Follow the **Async Guardrail** rule in project instructions (mandatory).
-- Local fallback: if output contains `CCB_ASYNC_SUBMITTED`, end your turn immediately.
-- If submit fails (non-zero exit):
-  - Reply with exactly one line: `[Provider] submit failed: <short error>`
-  - End your turn immediately.
+### Foreground (smoke test / need reply now)
 
-## Anti-Patterns (DO NOT)
+```powershell
+$env:CCB_CALLER = "grok"
+"Reply with exactly: TOKEN_OK" | ask claude --foreground --timeout 180
+```
 
-- **NEVER use `run_in_background: true`** for ask commands — stdin is not delivered to the background process
-- **NEVER use `Start-Process`** — same stdin issue
+### PATH fallback (if `ask` not found)
 
-## Message Quality Rules (MANDATORY)
+```powershell
+$env:CCB_CALLER = "grok"
+$ASK = Join-Path $env:LOCALAPPDATA "codex-dual\bin\ask"
+"msg" | python $ASK claude --foreground --timeout 180
+```
 
-When composing the message to send:
-1. **Complete message only** — never send partial, truncated, or incomplete requests
-2. **Include enough context** — provide background so the other provider can respond effectively without needing to ask clarifying questions
-3. **State your reasoning** — briefly explain WHY you're delegating, not just WHAT you want done
-4. **One request at a time** — do not send follow-up messages until the previous request is fully processed
+## Message quality
 
-## Examples
+1. Complete message only — never partial
+2. Enough context for the other agent to act without asking you
+3. State WHY you are delegating
+4. One request at a time per provider
 
-- `/ask codex What is 12+12?`
-- `/ask claude Refactor this function for better readability`
-- `/ask gemini Brainstorm UI layout options`
+## Related commands
+
+```powershell
+ccb-ping claude          # health
+ccb-ping mimo
+ccb-ping opencode
+pend claude              # latest reply
+ccb-bootstrap            # new project folder: write .ccb/ccb.config
+ccb                      # start team panes in current directory
+```
+
+## New project folder workflow
+
+```powershell
+cd D:\path\to\project
+ccb-bootstrap
+ccb -a
+# then use this skill to SMS teammates
+```
+
+## Anti-patterns
+
+- `run_in_background: true` / `Start-Process` for ask
+- Flooding multiple concurrent asks to the same provider
+- Forgetting `CCB_CALLER=grok` (caller is required by askd)
+- Assuming GitHub latest CCB — this team uses **Windows pin 5.2.8**

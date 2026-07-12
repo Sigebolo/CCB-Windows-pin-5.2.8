@@ -1,14 +1,16 @@
 ---
 name: cping
-description: Test connectivity with AI provider (gemini/codex/opencode/droid/claude).
+description: Test CCB provider connectivity (claude/mimo/opencode/grok/...). Use before blaming agents when SMS fails.
 ---
 
 # CCB Ping
 
-Test whether a CCB provider pane/session is reachable.
-
-```
+```powershell
 ccb-ping <provider>
+# fallback:
+python "$env:LOCALAPPDATA\codex-dual\bin\ccb-ping" <provider>
 ```
 
-Providers: `gemini`, `codex`, `opencode`, `droid`, `claude`, `grok`
+Providers: `grok`, `claude`, `mimo`, `opencode`, `codex`, `gemini`, `droid`, `kiro`
+
+Healthy examples: `Session OK`, `Grok OK pane=...`, `MiMo OK pane=...`, `OpenCode connection OK`.
