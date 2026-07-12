@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""
+xping - Test Grok connectivity
+"""
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+script_dir = Path(__file__).resolve().parent
+lib_dir = script_dir.parent / "lib"
+sys.path.insert(0, str(lib_dir))
+from compat import setup_windows_encoding
+setup_windows_encoding()
+
+from grok_comm import GrokCommunicator
+
+
+def _resolve_work_dir(session_file: str | None) -> Path:
+    if not session_file:
+        return Path.cwd()
+    raw = str(session_file).strip()
+    if not raw:
+        return Path.cwd()
+    p = Path(os.path.expanduser(raw))
+    try:
+        p = p.resolve()
+    except Exception:
+        p = p.absolute()
+    if p.parent.name in (".ccb", ".ccb_config"):
+        return p.parent.parent
+    return p.parent
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Test Grok connectivity")
+    parser.add_argument("--session-file", dest="session_file", default=None)
+    args = parser.parse_args()
+    if args.session_file:
+        os.environ["CCB_SESSION_FILE"] = str(args.session_file)
+    work_dir = _resolve_work_dir(args.session_file)
+    comm = GrokCommunicator(work_dir)
+    healthy, message = comm.ping(display=False)
+    print(message)
+    return 0 if healthy else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

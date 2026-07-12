@@ -258,7 +258,8 @@ function Install-Native {
     "oask", "oping", "opend",
     "lask", "lping", "lpend",
     "dask", "dping", "dpend",
-    "ask", "ccb-ping", "pend", "autonew", "ccb-completion-hook", "maild"
+    "xask", "xping", "xpend",
+    "ask", "askd", "ccb-ping", "pend", "autonew", "ccb-completion-hook", "maild"
   )
 
   # In MSYS/Git-Bash, invoking the script file directly will honor the shebang.
@@ -351,6 +352,7 @@ function Install-Native {
   Install-CodexSkills
   Install-ClaudeConfig
   Install-DroidSkills
+  Install-GrokSkills
   Install-DroidDelegation -PythonCmd $pythonCmd -InstallPrefix $InstallPrefix
   Cleanup-LegacyFiles -InstallPrefix $InstallPrefix
 
@@ -470,6 +472,49 @@ function Install-CodexSkills {
     Write-Host "  Updated Codex skill: $skillName"
   }
   Write-Host "Updated Codex skills directory: $skillsDst"
+}
+
+function Install-GrokSkills {
+  $skillsSrc = Join-Path $repoRoot "grok_skills"
+  $grokHome = if ($env:GROK_HOME) { $env:GROK_HOME } else { Join-Path $env:USERPROFILE ".grok" }
+  $skillsDst = Join-Path $grokHome "skills"
+
+  if (-not (Test-Path $skillsSrc)) {
+    return
+  }
+
+  if (-not (Get-Command grok -ErrorAction SilentlyContinue)) {
+    return
+  }
+
+  if (-not (Test-Path $skillsDst)) {
+    New-Item -ItemType Directory -Path $skillsDst -Force | Out-Null
+  }
+
+  Write-Host "Installing Grok skills..."
+  Get-ChildItem -Path $skillsSrc -Directory | ForEach-Object {
+    $skillName = $_.Name
+    $srcDir = $_.FullName
+    $dstDir = Join-Path $skillsDst $skillName
+
+    $srcSkillMd = Join-Path $srcDir "SKILL.md"
+    if (-not (Test-Path $srcSkillMd)) {
+      return
+    }
+
+    if (-not (Test-Path $dstDir)) {
+      New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
+    }
+
+    Copy-Item -Force $srcSkillMd (Join-Path $dstDir "SKILL.md")
+
+    Get-ChildItem -Path $srcDir -Directory | ForEach-Object {
+      Copy-Item -Recurse -Force $_.FullName (Join-Path $dstDir $_.Name)
+    }
+
+    Write-Host "  Updated Grok skill: $skillName"
+  }
+  Write-Host "Updated Grok skills directory: $skillsDst"
 }
 
 function Install-DroidSkills {
@@ -775,6 +820,8 @@ $($script:CCB_WEZTERM_START_MARKER)
 -- Set default shell to PowerShell (installed by ccb)
 config.default_prog = { '$shellExe' }
 -- Fallback (if '$shellExe' is not available): config.default_prog = { '$fallbackExe' }
+-- Font size (change as needed)
+config.font_size = 11.0
 $($script:CCB_WEZTERM_END_MARKER)
 "@
 

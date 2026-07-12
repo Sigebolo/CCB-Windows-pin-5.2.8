@@ -40,7 +40,16 @@ from session_utils import (
 )
 from pane_registry import upsert_registry, load_registry_by_project_id
 from project_id import compute_ccb_project_id
-from providers import CASK_CLIENT_SPEC, GASK_CLIENT_SPEC, OASK_CLIENT_SPEC, LASK_CLIENT_SPEC, DASK_CLIENT_SPEC
+from providers import (
+    CASK_CLIENT_SPEC,
+    GASK_CLIENT_SPEC,
+    OASK_CLIENT_SPEC,
+    LASK_CLIENT_SPEC,
+    DASK_CLIENT_SPEC,
+    MASK_CLIENT_SPEC,
+    KASK_CLIENT_SPEC,
+    XASK_CLIENT_SPEC,
+)
 from process_lock import ProviderLock
 from askd_rpc import shutdown_daemon, read_state
 from askd_runtime import state_file_path
@@ -608,7 +617,7 @@ class AILauncher:
         """Managed env + explicit caller marker for the pane/provider process."""
         env = self._managed_env_overrides()
         prov = (provider or "").strip().lower()
-        if prov in {"claude", "codex", "gemini", "opencode", "droid", "email", "manual"}:
+        if prov in {"claude", "codex", "gemini", "opencode", "droid", "mimo", "kiro", "grok", "email", "manual"}:
             env["CCB_CALLER"] = prov
         return env
 
@@ -631,7 +640,16 @@ class AILauncher:
         if not cfg.is_dir():
             return
 
-        for name in (".codex-session", ".gemini-session", ".opencode-session", ".claude-session", ".droid-session"):
+        for name in (
+            ".codex-session",
+            ".gemini-session",
+            ".opencode-session",
+            ".claude-session",
+            ".droid-session",
+            ".mimo-session",
+            ".kiro-session",
+            ".grok-session",
+        ):
             legacy = self.project_root / name
             if not legacy.exists():
                 continue
@@ -760,7 +778,7 @@ class AILauncher:
     def _maybe_start_unified_askd(self, *, quiet: bool = False) -> None:
         """Start unified askd daemon (provider-agnostic)."""
         # Try to start for any enabled provider that uses askd (including claude)
-        for provider in ["codex", "gemini", "opencode", "droid", "claude"]:
+        for provider in ["codex", "gemini", "opencode", "droid", "claude", "mimo", "kiro", "grok"]:
             if provider in [p.lower() for p in self.providers]:
                 # Try to start and check if successful
                 self._maybe_start_provider_daemon(provider, quiet=quiet)
@@ -799,6 +817,9 @@ class AILauncher:
             "opencode": OASK_CLIENT_SPEC,
             "claude": LASK_CLIENT_SPEC,
             "droid": DASK_CLIENT_SPEC,
+            "mimo": MASK_CLIENT_SPEC,
+            "kiro": KASK_CLIENT_SPEC,
+            "grok": XASK_CLIENT_SPEC,
         }
         spec = specs.get(provider)
         if not spec:
@@ -1227,6 +1248,10 @@ class AILauncher:
             return self._start_opencode_tmux(parent_pane=parent_pane, direction=direction)
         elif provider == "droid":
             return self._start_droid_tmux(parent_pane=parent_pane, direction=direction)
+        elif provider == "grok":
+            return self._start_grok_tmux(parent_pane=parent_pane, direction=direction)
+        elif provider == "mimo":
+            return self._start_mimo_tmux(parent_pane=parent_pane, direction=direction)
         else:
             print(f"❌ {t('unknown_provider', provider=provider)}")
             return None
@@ -1280,6 +1305,10 @@ class AILauncher:
             self._write_opencode_session(runtime, None, pane_id=pane_id, pane_title_marker=pane_title_marker, start_cmd=start_cmd)
         elif provider == "droid":
             self._write_droid_session(runtime, None, pane_id=pane_id, pane_title_marker=pane_title_marker, start_cmd=start_cmd)
+        elif provider == "grok":
+            self._write_grok_session(runtime, None, pane_id=pane_id, pane_title_marker=pane_title_marker, start_cmd=start_cmd)
+        elif provider == "mimo":
+            self._write_mimo_session(runtime, None, pane_id=pane_id, pane_title_marker=pane_title_marker, start_cmd=start_cmd)
         else:
             print(f"❌ {t('unknown_provider', provider=provider)}")
             return None
@@ -1904,6 +1933,10 @@ class AILauncher:
             return self._build_opencode_start_cmd()
         elif provider == "droid":
             return self._build_droid_start_cmd()
+        elif provider == "grok":
+            return self._build_grok_start_cmd()
+        elif provider == "mimo":
+            return self._build_mimo_start_cmd()
         return ""
 
     def _opencode_resume_allowed(self) -> bool:
@@ -2051,6 +2084,37 @@ class AILauncher:
                 print(f"🔁 {t('resuming_session', provider='Droid', session_id=sid_hint)}")
             else:
                 print(f"ℹ️ {t('no_history_fresh', provider='Droid')}")
+        return cmd
+
+    def _build_grok_start_cmd(self) -> str:
+        cmd = (os.environ.get("GROK_START_CMD") or "grok").strip() or "grok"
+        # Prefer always-approve for unattended multi-agent collaboration.
+        if "--always-approve" not in cmd and os.environ.get("CCB_GROK_ALWAYS_APPROVE", "1").lower() not in {
+            "0", "false", "no", "off",
+        }:
+            cmd = f"{cmd} --always-approve"
+        if self.resume:
+            # Continue most recent session for this cwd.
+            if " -c" not in f" {cmd} " and " --continue" not in cmd:
+                cmd = f"{cmd} -c"
+            print(f"🔁 {t('resuming_session', provider='Grok', session_id='')}")
+        return cmd
+
+    def _build_mimo_start_cmd(self) -> str:
+        cmd = (os.environ.get("MIMO_START_CMD") or "mimo").strip() or "mimo"
+        if self.resume:
+            resume_cmd = (os.environ.get("MIMO_RESUME_CMD") or "").strip()
+            if resume_cmd:
+                cmd = resume_cmd
+                print(f"🔁 {t('resuming_session', provider='MiMo', session_id='')}")
+            else:
+                # Best-effort continue flags used by various MiMo CLI builds.
+                for flag in (" -c", " --continue", " -r", " --resume"):
+                    if flag in f" {cmd} ":
+                        break
+                else:
+                    cmd = f"{cmd} -c"
+                print(f"🔁 {t('resuming_session', provider='MiMo', session_id='')}")
         return cmd
 
     def _ensure_opencode_auto_config(self) -> None:
@@ -2642,6 +2706,10 @@ class AILauncher:
             return self._start_opencode_current_pane()
         if provider == "droid":
             return self._start_droid_current_pane()
+        if provider == "grok":
+            return self._start_grok_current_pane()
+        if provider == "mimo":
+            return self._start_mimo_current_pane()
         print(f"❌ {t('unknown_provider', provider=provider)}")
         return 1
 
@@ -2900,6 +2968,252 @@ class AILauncher:
             pass
         self._maybe_start_provider_daemon("droid")
         return True
+
+    def _write_grok_session(self, runtime, tmux_session, pane_id=None, pane_title_marker=None, start_cmd=None):
+        session_file = self._project_session_file(".grok-session")
+
+        writable, reason, fix = check_session_writable(session_file)
+        if not writable:
+            print(f"❌ Cannot write {session_file.name}: {reason}", file=sys.stderr)
+            print(f"💡 Fix: {fix}", file=sys.stderr)
+            return False
+
+        grok_session_path = None
+        grok_session_id = None
+        try:
+            from grok_comm import GrokLogReader
+
+            reader = GrokLogReader(work_dir=self.project_root)
+            session_dir = reader.session_dir()
+            if session_dir and session_dir.exists():
+                grok_session_path = str(session_dir)
+                grok_session_id = session_dir.name
+        except Exception:
+            pass
+
+        data = {
+            "session_id": self.session_id,
+            "ccb_session_id": self.session_id,
+            "ccb_project_id": compute_ccb_project_id(self.project_root),
+            "runtime_dir": str(runtime),
+            "terminal": self.terminal_type,
+            "tmux_session": tmux_session,
+            "pane_id": pane_id,
+            "pane_title_marker": pane_title_marker or "CCB-Grok",
+            "work_dir": str(self.project_root),
+            "work_dir_norm": _normalize_path_for_match(str(self.project_root)),
+            "start_dir": str(self.invocation_dir),
+            "active": True,
+            "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_cmd": str(start_cmd) if start_cmd else None,
+            "grok_session_id": grok_session_id,
+            "grok_session_path": grok_session_path,
+        }
+
+        ok, err = safe_write_session(session_file, json.dumps(data, ensure_ascii=False, indent=2))
+        if not ok:
+            print(err, file=sys.stderr)
+            return False
+        try:
+            upsert_registry({
+                "ccb_session_id": self.session_id,
+                "ccb_project_id": compute_ccb_project_id(self.project_root),
+                "work_dir": str(self.project_root),
+                "terminal": self.terminal_type,
+                "providers": {
+                    "grok": {
+                        "pane_id": pane_id,
+                        "pane_title_marker": pane_title_marker or "CCB-Grok",
+                        "session_file": str(session_file),
+                        "grok_session_id": grok_session_id,
+                        "grok_session_path": grok_session_path,
+                    }
+                },
+            })
+        except Exception:
+            pass
+        self._maybe_start_provider_daemon("grok")
+        return True
+
+    def _write_mimo_session(self, runtime, tmux_session, pane_id=None, pane_title_marker=None, start_cmd=None):
+        session_file = self._project_session_file(".mimo-session")
+
+        writable, reason, fix = check_session_writable(session_file)
+        if not writable:
+            print(f"❌ Cannot write {session_file.name}: {reason}", file=sys.stderr)
+            print(f"💡 Fix: {fix}", file=sys.stderr)
+            return False
+
+        mimo_session_id = None
+        try:
+            from mimo_comm import MiMoLogReader
+
+            reader = MiMoLogReader(work_dir=self.project_root)
+            latest = reader._latest_session()
+            if latest and latest.exists():
+                mimo_session_id = latest.stem
+        except Exception:
+            pass
+
+        data = {
+            "session_id": self.session_id,
+            "ccb_session_id": self.session_id,
+            "ccb_project_id": compute_ccb_project_id(self.project_root),
+            "runtime_dir": str(runtime),
+            "terminal": self.terminal_type,
+            "tmux_session": tmux_session,
+            "pane_id": pane_id,
+            "pane_title_marker": pane_title_marker or "CCB-Mimo",
+            "work_dir": str(self.project_root),
+            "work_dir_norm": _normalize_path_for_match(str(self.project_root)),
+            "start_dir": str(self.invocation_dir),
+            "active": True,
+            "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_cmd": str(start_cmd) if start_cmd else None,
+            "mimo_session_id": mimo_session_id,
+        }
+
+        ok, err = safe_write_session(session_file, json.dumps(data, ensure_ascii=False, indent=2))
+        if not ok:
+            print(err, file=sys.stderr)
+            return False
+        try:
+            upsert_registry({
+                "ccb_session_id": self.session_id,
+                "ccb_project_id": compute_ccb_project_id(self.project_root),
+                "work_dir": str(self.project_root),
+                "terminal": self.terminal_type,
+                "providers": {
+                    "mimo": {
+                        "pane_id": pane_id,
+                        "pane_title_marker": pane_title_marker or "CCB-Mimo",
+                        "session_file": str(session_file),
+                        "mimo_session_id": mimo_session_id,
+                    }
+                },
+            })
+        except Exception:
+            pass
+        self._maybe_start_provider_daemon("mimo")
+        return True
+
+    def _start_grok_tmux(
+        self,
+        *,
+        parent_pane: str | None = None,
+        direction: str | None = None,
+    ) -> str | None:
+        runtime = self.runtime_dir / "grok"
+        runtime.mkdir(parents=True, exist_ok=True)
+
+        env_overrides = self._provider_env_overrides("grok")
+        start_cmd = (
+            self._build_env_prefix(env_overrides)
+            + _build_export_path_cmd(self.script_dir / "bin")
+            + self._build_grok_start_cmd()
+        )
+        pane_title_marker = "CCB-Grok"
+        backend = TmuxBackend()
+
+        use_direction = (direction or ("right" if not self.tmux_panes else "bottom")).strip() or "right"
+        use_parent = parent_pane
+        if not use_parent and use_direction == "bottom":
+            try:
+                use_parent = next(reversed(self.tmux_panes.values()))
+            except StopIteration:
+                use_parent = None
+
+        title_cmd = _build_pane_title_cmd(pane_title_marker)
+        full_cmd = title_cmd + start_cmd
+        pane_id = backend.create_pane(full_cmd, str(Path.cwd()), direction=use_direction, percent=50, parent_pane=use_parent)
+        self.tmux_panes["grok"] = pane_id
+        self._write_grok_session(
+            runtime,
+            None,
+            pane_id=pane_id,
+            pane_title_marker=pane_title_marker,
+            start_cmd=start_cmd,
+        )
+        print(f"✅ {t('started_backend', provider='Grok', terminal='tmux pane', pane_id=pane_id)}")
+        return pane_id
+
+    def _start_mimo_tmux(
+        self,
+        *,
+        parent_pane: str | None = None,
+        direction: str | None = None,
+    ) -> str | None:
+        runtime = self.runtime_dir / "mimo"
+        runtime.mkdir(parents=True, exist_ok=True)
+
+        env_overrides = self._provider_env_overrides("mimo")
+        start_cmd = (
+            self._build_env_prefix(env_overrides)
+            + _build_export_path_cmd(self.script_dir / "bin")
+            + self._build_mimo_start_cmd()
+        )
+        pane_title_marker = "CCB-Mimo"
+        backend = TmuxBackend()
+
+        use_direction = (direction or ("right" if not self.tmux_panes else "bottom")).strip() or "right"
+        use_parent = parent_pane
+        if not use_parent and use_direction == "bottom":
+            try:
+                use_parent = next(reversed(self.tmux_panes.values()))
+            except StopIteration:
+                use_parent = None
+
+        title_cmd = _build_pane_title_cmd(pane_title_marker)
+        full_cmd = title_cmd + start_cmd
+        pane_id = backend.create_pane(full_cmd, str(Path.cwd()), direction=use_direction, percent=50, parent_pane=use_parent)
+        self.tmux_panes["mimo"] = pane_id
+        self._write_mimo_session(
+            runtime,
+            None,
+            pane_id=pane_id,
+            pane_title_marker=pane_title_marker,
+            start_cmd=start_cmd,
+        )
+        print(f"✅ {t('started_backend', provider='MiMo', terminal='tmux pane', pane_id=pane_id)}")
+        return pane_id
+
+    def _start_grok_current_pane(self) -> int:
+        runtime = self.runtime_dir / "grok"
+        runtime.mkdir(parents=True, exist_ok=True)
+        env_overrides = self._provider_env_overrides("grok")
+        start_cmd = (
+            self._build_env_prefix(env_overrides)
+            + _build_export_path_cmd(self.script_dir / "bin")
+            + self._build_grok_start_cmd()
+        )
+        pane_id = (os.environ.get("TMUX_PANE") or os.environ.get("WEZTERM_PANE") or "").strip() or None
+        self._write_grok_session(
+            runtime,
+            None,
+            pane_id=pane_id,
+            pane_title_marker="CCB-Grok",
+            start_cmd=start_cmd,
+        )
+        return self._run_shell_command(start_cmd, cwd=str(Path.cwd()))
+
+    def _start_mimo_current_pane(self) -> int:
+        runtime = self.runtime_dir / "mimo"
+        runtime.mkdir(parents=True, exist_ok=True)
+        env_overrides = self._provider_env_overrides("mimo")
+        start_cmd = (
+            self._build_env_prefix(env_overrides)
+            + _build_export_path_cmd(self.script_dir / "bin")
+            + self._build_mimo_start_cmd()
+        )
+        pane_id = (os.environ.get("TMUX_PANE") or os.environ.get("WEZTERM_PANE") or "").strip() or None
+        self._write_mimo_session(
+            runtime,
+            None,
+            pane_id=pane_id,
+            pane_title_marker="CCB-Mimo",
+            start_cmd=start_cmd,
+        )
+        return self._run_shell_command(start_cmd, cwd=str(Path.cwd()))
 
     def _claude_project_dir(self, work_dir: Path) -> Path:
         projects_root = Path.home() / ".claude" / "projects"
@@ -3347,7 +3661,8 @@ class AILauncher:
             print("❌ No providers configured. Define providers in ccb.config or pass them on the command line.", file=sys.stderr)
             return 2
 
-        self.anchor_provider = self.providers[-1]
+        # First provider = team leader / current pane (anchor). Remaining open in list order.
+        self.anchor_provider = self.providers[0]
         self.anchor_pane_id = self._current_pane_id()
         if not self.anchor_pane_id:
             print("❌ Unable to determine current pane id. Run inside tmux or WezTerm.", file=sys.stderr)
@@ -3357,7 +3672,8 @@ class AILauncher:
         spawn_items: list[str] = []
         if cmd_settings.get("enabled"):
             spawn_items.append("cmd")
-        spawn_items.extend(list(reversed(self.providers[:-1])))
+        # Open teammates after the leader, preserving config order.
+        spawn_items.extend(list(self.providers[1:]))
         total_panes = 1 + len(spawn_items)
         left_count = 1 if total_panes <= 1 else max(1, total_panes // 2)
         right_count = total_panes - left_count
@@ -3429,6 +3745,21 @@ class AILauncher:
                     pane_id=str(self.anchor_pane_id or ""),
                     pane_title_marker="CCB-Claude",
                     terminal=self.terminal_type,
+                )
+            except Exception:
+                pass
+
+        # Mark current Grok pane/session as active when Grok is the team-leader anchor.
+        if self.anchor_provider == "grok":
+            try:
+                runtime = self.runtime_dir / "grok"
+                runtime.mkdir(parents=True, exist_ok=True)
+                self._write_grok_session(
+                    runtime,
+                    None,
+                    pane_id=str(self.anchor_pane_id or ""),
+                    pane_title_marker="CCB-Grok",
+                    start_cmd=self._build_grok_start_cmd(),
                 )
             except Exception:
                 pass
@@ -3877,6 +4208,9 @@ def cmd_kill(args):
         "opencode": OASK_CLIENT_SPEC,
         "claude": LASK_CLIENT_SPEC,
         "droid": DASK_CLIENT_SPEC,
+        "mimo": MASK_CLIENT_SPEC,
+        "kiro": KASK_CLIENT_SPEC,
+        "grok": XASK_CLIENT_SPEC,
     }
 
     for provider in providers:
@@ -3979,7 +4313,7 @@ def _parse_providers(values: list[str], *, allow_unknown: bool = False) -> list[
     if unknown and not allow_unknown:
         print(f"❌ invalid provider(s): {', '.join(unknown)}", file=sys.stderr)
         print("💡 use: ccb codex gemini opencode claude droid  (spaces)  or  ccb codex,gemini,opencode,claude,droid  (commas)", file=sys.stderr)
-        print("💡 allowed: codex, gemini, opencode, claude, droid", file=sys.stderr)
+        print("💡 allowed: codex, gemini, opencode, claude, droid, mimo, kiro, grok", file=sys.stderr)
         return []
 
     return parsed
@@ -4014,8 +4348,8 @@ def _parse_providers_with_cmd(values: list[str]) -> tuple[list[str], bool]:
 
     if unknown:
         print(f"❌ invalid provider(s): {', '.join(unknown)}", file=sys.stderr)
-        print("💡 use: ccb codex gemini opencode claude droid cmd  (spaces)  or  ccb codex,gemini,opencode,claude,droid,cmd  (commas)", file=sys.stderr)
-        print("💡 allowed: codex, gemini, opencode, claude, droid, cmd", file=sys.stderr)
+        print("💡 use: ccb codex gemini opencode claude droid mimo kiro grok cmd  (spaces)  or  ccb codex,gemini,opencode,claude,droid,mimo,kiro,grok,cmd  (commas)", file=sys.stderr)
+        print("💡 allowed: codex, gemini, opencode, claude, droid, mimo, kiro, grok, cmd", file=sys.stderr)
         return [], cmd_enabled
 
     return parsed, cmd_enabled
@@ -4825,6 +5159,186 @@ def cmd_droid_subcommand(argv: list[str]) -> int:
     return 1
 
 
+def cmd_sessions(args) -> int:
+    """List and manage past sessions."""
+    import glob as _glob
+
+    work_dir = Path.cwd()
+    # Find .ccb directory by walking up
+    ccb_dir = None
+    for parent in [work_dir, *work_dir.parents]:
+        candidate = parent / ".ccb"
+        if candidate.is_dir():
+            ccb_dir = candidate
+            break
+        legacy = parent / ".ccb_config"
+        if legacy.is_dir():
+            ccb_dir = legacy
+            break
+
+    if not ccb_dir:
+        print("❌ No .ccb project directory found.", file=sys.stderr)
+        print("💡 Run `ccb` in a project directory first.", file=sys.stderr)
+        return 1
+
+    # Collect all session files
+    providers = ["claude", "codex", "gemini", "opencode", "droid", "mimo", "kiro", "grok"]
+    sessions = []
+
+    for prov in providers:
+        session_file = ccb_dir / f".{prov}-session"
+        if not session_file.exists():
+            continue
+        try:
+            data = json.loads(session_file.read_text(encoding="utf-8-sig"))
+            if not isinstance(data, dict) or not data:
+                continue
+        except Exception:
+            continue
+
+        sessions.append({
+            "provider": prov,
+            "session_id": data.get("session_id", ""),
+            "started_at": data.get("started_at", ""),
+            "ended_at": data.get("ended_at", ""),
+            "active": data.get("active", False),
+            "work_dir": data.get("work_dir", ""),
+            "pane_id": data.get("pane_id", ""),
+        })
+
+    # For Claude, also scan sessions-index.json for historical sessions
+    if args.action == "list":
+        claude_project_dirs = []
+        home = Path.home()
+        # Scan ~/.claude/projects/ for matching project dirs
+        claude_projects_root = home / ".claude" / "projects"
+        if claude_projects_root.is_dir():
+            for proj_dir in claude_projects_root.iterdir():
+                if not proj_dir.is_dir():
+                    continue
+                index_file = proj_dir / "sessions-index.json"
+                if not index_file.exists():
+                    continue
+                try:
+                    index_data = json.loads(index_file.read_text(encoding="utf-8"))
+                    entries = index_data.get("entries", []) if isinstance(index_data, dict) else []
+                except Exception:
+                    continue
+
+                for entry in entries:
+                    if entry.get("isSidechain"):
+                        continue
+                    full_path = entry.get("fullPath", "")
+                    if not full_path:
+                        continue
+                    # Check if session file exists
+                    session_path = Path(full_path).expanduser()
+                    if not session_path.is_absolute():
+                        session_path = proj_dir / session_path
+                    if not session_path.exists():
+                        continue
+
+                    # Check if this session matches current project
+                    project_path = entry.get("projectPath", "")
+                    if project_path:
+                        try:
+                            ep = Path(project_path).expanduser()
+                            if not ep.is_absolute():
+                                continue
+                            # Check if it's under current project
+                            try:
+                                ep.resolve().relative_to(ccb_dir.parent.resolve())
+                            except ValueError:
+                                continue
+                        except Exception:
+                            continue
+
+                    mtime = entry.get("fileMtime") or ""
+                    if not mtime:
+                        try:
+                            mtime = str(int(session_path.stat().st_mtime))
+                        except Exception:
+                            mtime = ""
+
+                    sessions.append({
+                        "provider": "claude",
+                        "session_id": session_path.stem,
+                        "started_at": "",
+                        "ended_at": "",
+                        "active": False,
+                        "work_dir": project_path or "",
+                        "pane_id": "",
+                        "source": "history",
+                        "mtime": mtime,
+                    })
+
+    if not sessions:
+        print("No sessions found.")
+        print(f"Project: {ccb_dir.parent}")
+        return 0
+
+    # Sort by started_at descending
+    def _sort_key(s):
+        ts = s.get("started_at") or s.get("mtime") or ""
+        return ts
+
+    sessions.sort(key=_sort_key, reverse=True)
+
+    # Print table
+    print(f"{'#':<4} {'Provider':<10} {'Status':<10} {'Started':<20} {'Ended':<20} {'Session ID'}")
+    print("-" * 90)
+    for i, s in enumerate(sessions):
+        status = "active" if s.get("active") else "ended"
+        if s.get("source") == "history":
+            status = "history"
+        sid = s.get("session_id", "")
+        if len(sid) > 20:
+            sid = sid[:17] + "..."
+        print(f"{i:<4} {s['provider']:<10} {status:<10} {s.get('started_at', ''):<20} {s.get('ended_at', ''):<20} {sid}")
+
+    print(f"\nTotal: {len(sessions)} session(s)")
+    print(f"Project: {ccb_dir.parent}")
+
+    if args.action == "resume":
+        if args.target is None:
+            print("\n💡 Usage: ccb sessions resume <index>", file=sys.stderr)
+            return 1
+        try:
+            idx = int(args.target)
+        except ValueError:
+            print(f"❌ Invalid index: {args.target}", file=sys.stderr)
+            return 1
+        if idx < 0 or idx >= len(sessions):
+            print(f"❌ Index out of range: {idx} (0-{len(sessions)-1})", file=sys.stderr)
+            return 1
+        target = sessions[idx]
+        provider = target["provider"]
+        print(f"\nResuming {provider} session {target['session_id']}...")
+        # Delegate to ccb -r
+        return cmd_start(argparse.Namespace(
+            providers=[provider],
+            resume=True,
+            auto=False,
+        ))
+
+    if args.action == "clear":
+        count = 0
+        for prov in providers:
+            session_file = ccb_dir / f".{prov}-session"
+            if session_file.exists():
+                try:
+                    data = json.loads(session_file.read_text(encoding="utf-8-sig"))
+                    if isinstance(data, dict) and data.get("active") is False:
+                        session_file.unlink()
+                        count += 1
+                except Exception:
+                    pass
+        print(f"✅ Cleared {count} inactive session file(s).")
+        return 0
+
+    return 0
+
+
 def main():
     argv = sys.argv[1:]
     if "--print-version" in argv:
@@ -4842,7 +5356,7 @@ def main():
     if argv and argv[0] == "droid" and len(argv) > 1 and argv[1] in {"setup-delegation", "test-delegation"}:
         return cmd_droid_subcommand(argv[1:])
 
-    if argv and argv[0] in {"kill", "update", "version", "uninstall", "reinstall"}:
+    if argv and argv[0] in {"kill", "update", "version", "uninstall", "reinstall", "sessions"}:
         parser = argparse.ArgumentParser(description="Claude AI unified launcher", add_help=True)
         subparsers = parser.add_subparsers(dest="command", help="Subcommands")
 
@@ -4859,6 +5373,13 @@ def main():
         subparsers.add_parser("uninstall", help="Uninstall ccb and clean configs")
         subparsers.add_parser("reinstall", help="Reinstall ccb and refresh configs")
 
+        sessions_parser = subparsers.add_parser("sessions", help="List and manage past sessions")
+        sessions_parser.add_argument("action", nargs="?", default="list",
+                                     choices=["list", "resume", "clear"],
+                                     help="Action: list (default), resume, clear")
+        sessions_parser.add_argument("target", nargs="?",
+                                     help="Session index (for resume)")
+
         args = parser.parse_args(argv)
         if args.command == "kill":
             return cmd_kill(args)
@@ -4870,6 +5391,8 @@ def main():
             return cmd_uninstall(args)
         if args.command == "reinstall":
             return cmd_reinstall(args)
+        if args.command == "sessions":
+            return cmd_sessions(args)
         parser.print_help()
         return 1
 
@@ -4880,12 +5403,12 @@ def main():
     start_parser = argparse.ArgumentParser(
         description="Claude AI unified launcher",
         add_help=True,
-        epilog="Other commands: ccb update | ccb version | ccb kill | ccb uninstall | ccb reinstall | ccb droid setup-delegation | ccb mail setup",
+        epilog="Other commands: ccb update | ccb version | ccb kill | ccb sessions | ccb uninstall | ccb reinstall | ccb droid setup-delegation | ccb mail setup",
     )
     start_parser.add_argument(
         "providers",
         nargs="*",
-        help="Backends to start (space or comma separated): codex, gemini, opencode, claude, droid (add cmd for a shell pane)",
+        help="Backends to start (space or comma separated): codex, gemini, opencode, claude, droid, mimo, kiro, grok (add cmd for a shell pane)",
     )
     start_parser.add_argument("-r", "--resume", "--restore", action="store_true", help="Resume context")
     start_parser.add_argument("-a", "--auto", action="store_true", help="Full auto permission mode")

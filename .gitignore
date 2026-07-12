@@ -2,7 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
-docs/
+# Keep markdown under docs/ (Windows pin notes, etc.)
+docs/*
+!docs/**/
 !docs/**/*.md
 tests/
 .ccb_config/
@@ -20,8 +22,13 @@ tests/
 .gemini-session
 .claude-session
 .opencode-session
+.mimo-session
+.kiro-session
+.grok-session
+.droid-session
 opencode.json
 .claude/
+.mimocode/
 *.mp4
 tmp/
 compare_with_mcp/
@@ -31,3 +38,4 @@ GEMINI.md
 openspec
 *.log
 .hippocampus
+test_ask.py

@@ -75,6 +75,16 @@ DASKD_SPEC = ProviderDaemonSpec(
 )
 
 
+MASKD_SPEC = ProviderDaemonSpec(
+    daemon_key="maskd",
+    protocol_prefix="mask",
+    state_file_name="maskd.json",
+    log_file_name="maskd.log",
+    idle_timeout_env="CCB_MASKD_IDLE_TIMEOUT_S",
+    lock_name="maskd",
+)
+
+
 CASK_CLIENT_SPEC = ProviderClientSpec(
     protocol_prefix="cask",
     enabled_env="CCB_CASKD",
@@ -130,6 +140,62 @@ DASK_CLIENT_SPEC = ProviderClientSpec(
     autostart_env_legacy="CCB_AUTO_DASKD",
     state_file_env="CCB_DASKD_STATE_FILE",
     session_filename=".droid-session",
+    daemon_bin_name="askd",
+    daemon_module="askd.daemon",
+)
+
+
+MASK_CLIENT_SPEC = ProviderClientSpec(
+    protocol_prefix="mask",
+    enabled_env="CCB_MASKD",
+    autostart_env_primary="CCB_MASKD_AUTOSTART",
+    autostart_env_legacy="CCB_AUTO_MASKD",
+    state_file_env="CCB_MASKD_STATE_FILE",
+    session_filename=".mimo-session",
+    daemon_bin_name="askd",
+    daemon_module="askd.daemon",
+)
+
+
+KASKD_SPEC = ProviderDaemonSpec(
+    daemon_key="kaskd",
+    protocol_prefix="kask",
+    state_file_name="kaskd.json",
+    log_file_name="kaskd.log",
+    idle_timeout_env="CCB_KASKD_IDLE_TIMEOUT_S",
+    lock_name="kaskd",
+)
+
+
+KASK_CLIENT_SPEC = ProviderClientSpec(
+    protocol_prefix="kask",
+    enabled_env="CCB_KASKD",
+    autostart_env_primary="CCB_KASKD_AUTOSTART",
+    autostart_env_legacy="CCB_AUTO_KASKD",
+    state_file_env="CCB_KASKD_STATE_FILE",
+    session_filename=".kiro-session",
+    daemon_bin_name="askd",
+    daemon_module="askd.daemon",
+)
+
+
+XASKD_SPEC = ProviderDaemonSpec(
+    daemon_key="xaskd",
+    protocol_prefix="xask",
+    state_file_name="xaskd.json",
+    log_file_name="xaskd.log",
+    idle_timeout_env="CCB_XASKD_IDLE_TIMEOUT_S",
+    lock_name="xaskd",
+)
+
+
+XASK_CLIENT_SPEC = ProviderClientSpec(
+    protocol_prefix="xask",
+    enabled_env="CCB_XASKD",
+    autostart_env_primary="CCB_XASKD_AUTOSTART",
+    autostart_env_legacy="CCB_AUTO_XASKD",
+    state_file_env="CCB_XASKD_STATE_FILE",
+    session_filename=".grok-session",
     daemon_bin_name="askd",
     daemon_module="askd.daemon",
 )

@@ -5,13 +5,15 @@ Abstract roles map to concrete AI providers. Skills reference roles, not provide
 
 | Role | Provider | Description |
 |------|----------|-------------|
-| `designer` | `claude` | Primary planner and architect — owns plans and designs |
-| `inspiration` | `gemini` | Creative brainstorming — provides ideas as reference only (unreliable, never blindly follow) |
-| `reviewer` | `codex` | Scored quality gate — evaluates plans/code using Rubrics |
+| `designer` / **team leader** | `grok` | Owns plans, coordination, and final decisions |
+| `inspiration` | `mimo` | Creative brainstorming — reference only (never blindly follow) |
+| `reviewer` | `opencode` | Scored quality gate — evaluates plans/code using Rubrics |
 | `executor` | `claude` | Code implementation — writes and modifies code |
 
+Default squad: `grok,claude,mimo,opencode` (first = leader / current pane).
+
 To change a role assignment, edit the Provider column above.
-When a skill references a role (e.g. `reviewer`), resolve it to the provider listed here.
+When a skill references a role (e.g. `reviewer`), resolve it to the provider listed here (e.g. `/ask opencode`).
 <!-- CCB_ROLES_END -->
 
 <!-- REVIEW_RUBRICS_START -->

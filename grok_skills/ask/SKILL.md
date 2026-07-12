@@ -1,6 +1,6 @@
 ---
 name: ask
-description: Async via ask, end turn immediately; use when user explicitly delegates to any AI provider (gemini/codex/opencode/droid/mimo/grok); NOT for questions about the providers themselves.
+description: Async via ask, end turn immediately; use when user explicitly delegates to any AI provider (gemini/codex/opencode/droid/mimo/claude); NOT for questions about the providers themselves.
 metadata:
   short-description: Ask AI provider asynchronously
 ---
@@ -15,16 +15,17 @@ The first argument must be the provider name, followed by the message:
 - `gemini` - Send to Gemini
 - `codex` - Send to Codex
 - `opencode` - Send to OpenCode
+- `claude` - Send to Claude
 - `mimo` - Send to MiMo
 - `kiro` - Send to Kiro
-- `grok` - Send to Grok (xAI)
+- `droid` - Send to Droid
 
 ## Execution (MANDATORY)
 
 **Do NOT use `run_in_background: true`** — it breaks stdin piping and the message is silently lost.
 
 ```
-$env:CCB_CALLER='claude'; "$MESSAGE" | ask $PROVIDER
+$env:CCB_CALLER='grok'; "$MESSAGE" | ask $PROVIDER
 ```
 
 For multi-line messages:
@@ -33,12 +34,12 @@ For multi-line messages:
 $MESSAGE = @"
 Your multi-line message here
 "@
-$env:CCB_CALLER='claude'; $MESSAGE | ask $PROVIDER
+$env:CCB_CALLER='grok'; $MESSAGE | ask $PROVIDER
 ```
 
 ## Rules
 
-- Follow the **Async Guardrail** rule in CLAUDE.md (mandatory).
+- Follow the **Async Guardrail** rule in project instructions (mandatory).
 - Local fallback: if output contains `CCB_ASYNC_SUBMITTED`, end your turn immediately.
 - If submit fails (non-zero exit):
   - Reply with exactly one line: `[Provider] submit failed: <short error>`
@@ -59,7 +60,6 @@ When composing the message to send:
 
 ## Examples
 
-- `/ask gemini What is 12+12?`
-- `/ask opencode Refactor this function for better readability`
-- `/ask mimo Analyze this bug and suggest a fix`
-- `/ask grok Review this design and list risks`
+- `/ask codex What is 12+12?`
+- `/ask claude Refactor this function for better readability`
+- `/ask gemini Brainstorm UI layout options`

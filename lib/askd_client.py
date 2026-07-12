@@ -185,6 +185,7 @@ def try_daemon_request(
     quiet: bool,
     state_file: Optional[Path] = None,
     output_path: Path | None = None,
+    provider: str = "",
 ) -> Optional[Tuple[str, int]]:
     if not env_bool(spec.enabled_env, True):
         return None
@@ -219,6 +220,14 @@ def try_daemon_request(
         return None
 
     try:
+        # Auto-derive provider from protocol_prefix if not explicitly provided
+        # e.g. "cask" -> "codex", "lask" -> "claude", "mask" -> "mimo"
+        _PREFIX_TO_PROVIDER = {
+            "cask": "codex", "gask": "gemini", "oask": "opencode",
+            "dask": "droid", "lask": "claude", "mask": "mimo",
+            "kask": "kiro", "xask": "grok",
+        }
+        resolved_provider = provider or _PREFIX_TO_PROVIDER.get(spec.protocol_prefix, "")
         payload = {
             "type": f"{spec.protocol_prefix}.request",
             "v": 1,
@@ -229,6 +238,8 @@ def try_daemon_request(
             "quiet": bool(quiet),
             "message": message,
         }
+        if resolved_provider:
+            payload["provider"] = resolved_provider
         if output_path:
             payload["output_path"] = str(output_path)
         req_id = os.environ.get("CCB_REQ_ID", "").strip()
@@ -258,7 +269,9 @@ def try_daemon_request(
                 return None
             line = buf.split(b"\n", 1)[0].decode("utf-8", errors="replace")
             resp = json.loads(line)
-            if resp.get("type") != f"{spec.protocol_prefix}.response":
+            # Accept both protocol-specific response and generic ask.response
+            expected_types = {f"{spec.protocol_prefix}.response", "ask.response"}
+            if resp.get("type") not in expected_types:
                 return None
             reply = str(resp.get("reply") or "")
             exit_code = int(resp.get("exit_code", 1))

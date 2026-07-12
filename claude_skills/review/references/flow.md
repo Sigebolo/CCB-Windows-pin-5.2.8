@@ -43,6 +43,7 @@ Preliminary verdict: **PASS** / **FIX** / **UNCERTAIN**
 If provider is:
 - `codex` → use `/ask codex`
 - `gemini` → use `/ask gemini`
+- `mimo` → use `/ask mimo`
 
 ```
 /ask <provider> "Cross-review:
@@ -58,8 +59,15 @@ Your assessment:
 3. Final recommendation: PASS or FIX?
 
 If FIX, list specific items (max 3).
+Include your reasoning for each assessment point.
 Return JSON only."
 ```
+
+**Important**: `/ask` is async. After sending the cross-review request:
+1. End your turn immediately (Async Guardrail).
+2. Wait for the completion hook to deliver results, OR
+3. In a new turn, use `/pend <provider>` to check if the reply is ready.
+4. Do NOT send follow-up messages or poll in the same turn.
 
 ### 3. Final Decision
 

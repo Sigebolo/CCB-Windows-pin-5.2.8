@@ -138,10 +138,16 @@ def wrap_claude_prompt(message: str, req_id: str) -> str:
         f"{REQ_ID_PREFIX} {req_id}\n\n"
         f"{message}\n\n"
         f"{extra}"
-        "Reply using exactly this format:\n"
-        f"{BEGIN_PREFIX} {req_id}\n"
-        "<reply>\n"
-        f"{DONE_PREFIX} {req_id}\n"
+        "CRITICAL INSTRUCTIONS:\n"
+        "1. Read the request carefully and understand what is being asked.\n"
+        "2. Think through your approach before responding. Include your reasoning, "
+        "trade-offs considered, and key decisions in your reply.\n"
+        "3. Provide a COMPLETE response — do not truncate or leave partial output.\n"
+        "4. Your response MUST be self-contained and actionable.\n"
+        "5. Reply using exactly this format:\n"
+        f"   {BEGIN_PREFIX} {req_id}\n"
+        "   <your complete reply>\n"
+        f"   {DONE_PREFIX} {req_id}\n"
     )
 
 

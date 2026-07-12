@@ -99,7 +99,7 @@ class UnifiedAskDaemon:
     """
     Unified daemon server for all AI providers.
 
-    Handles requests for codex, gemini, opencode, droid, and claude
+    Handles requests for codex, gemini, opencode, droid, claude, mimo, kiro, and grok
     in a single process with per-provider worker pools.
     """
 

@@ -16,7 +16,9 @@ The first argument must be the provider name. The message MUST be provided via s
 - `gemini` - Send to Gemini
 - `claude` - Send to Claude
 - `opencode` - Send to OpenCode
-- `droid` - Send to Droid
+- `mimo` - Send to MiMo
+- `kiro` - Send to Kiro
+- `grok` - Send to Grok (xAI)
 
 ## Execution (MANDATORY)
 
@@ -32,11 +34,19 @@ EOF
 - Do not wait for results or check status in the same turn.
 - The task ID and log file path will be displayed for tracking.
 
+## Message Quality Rules (MANDATORY)
+
+When composing the message to send:
+1. **Complete message only** — never send partial, truncated, or incomplete requests
+2. **Include enough context** — provide background so the other provider can respond effectively
+3. **State your reasoning** — briefly explain WHY you're delegating, not just WHAT you want done
+4. **One request at a time** — do not send follow-up messages until the previous request is fully processed
+
 ## Examples
 
 - `/ask gemini What is 12+12?` (send via heredoc)
-- `CCB_CALLER=codex ask gemini <<'EOF'`
-  `What is 12+12?`
+- `CCB_CALLER=codex ask opencode <<'EOF'`
+  `Refactor this function for better readability`
   `EOF`
 
 ## Notes

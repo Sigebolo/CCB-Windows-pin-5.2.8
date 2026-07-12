@@ -219,6 +219,8 @@ Send the design brief to `inspiration` for creative input. The `inspiration` pro
 
 Send to `inspiration` (via `/ask`):
 
+**Note**: `/ask` is async. After sending, end your turn immediately (Async Guardrail). Wait for the completion hook to deliver results, or in a new turn use `/pend <provider>` to check if the reply is ready. Do NOT poll or send follow-up messages in the same turn.
+
 ```
 You are a creative brainstorming partner. Based on this design brief, provide INSPIRATION and CREATIVE IDEAS — not a full implementation plan.
 

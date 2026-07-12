@@ -10,7 +10,9 @@ from session_utils import legacy_project_config_dir, project_config_dir
 
 
 CONFIG_FILENAME = "ccb.config"
-DEFAULT_PROVIDERS = ["codex", "gemini", "opencode", "claude"]
+# First provider is the anchor (current pane / team leader when you run `ccb`).
+# Default squad: Grok (leader) + Claude + MiMo + OpenCode.
+DEFAULT_PROVIDERS = ["grok", "claude", "mimo", "opencode"]
 
 
 @dataclass
@@ -19,7 +21,7 @@ class StartConfig:
     path: Optional[Path] = None
 
 
-_ALLOWED_PROVIDERS = {"codex", "gemini", "opencode", "claude", "droid"}
+_ALLOWED_PROVIDERS = {"codex", "gemini", "opencode", "claude", "droid", "mimo", "kiro", "grok"}
 
 
 def _parse_tokens(raw: str) -> list[str]:

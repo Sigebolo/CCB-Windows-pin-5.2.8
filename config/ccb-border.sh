@@ -43,6 +43,12 @@ case "$key" in
     Droid)
         set_border "fg=#e0af68,bold" # Yellow
         ;;
+    MiMo)
+        set_border "fg=#f5c2e7,bold" # Pink
+        ;;
+    Kiro)
+        set_border "fg=#89dceb,bold" # Light Cyan
+        ;;
     Cmd)
         set_border "fg=#7dcfff,bold" # Teal
         ;;
@@ -62,6 +68,12 @@ case "$key" in
                 ;;
             CCB-Droid*)
                 set_border "fg=#e0af68,bold"
+                ;;
+            CCB-MiMo*)
+                set_border "fg=#f5c2e7,bold"
+                ;;
+            CCB-Kiro*)
+                set_border "fg=#89dceb,bold"
                 ;;
             CCB-Cmd*)
                 set_border "fg=#7dcfff,bold"

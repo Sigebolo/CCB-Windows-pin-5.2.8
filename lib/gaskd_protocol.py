@@ -20,11 +20,14 @@ def wrap_gemini_prompt(message: str, req_id: str) -> str:
     return (
         f"{REQ_ID_PREFIX} {req_id}\n\n"
         f"{message}\n\n"
-        "IMPORTANT — you MUST follow these rules:\n"
-        "1. Reply in English with an execution summary. Do not stay silent.\n"
-        "2. Your FINAL line MUST be exactly (copy verbatim, no extra text):\n"
-        f"   {DONE_PREFIX} {req_id}\n"
-        "3. Do NOT omit, modify, or paraphrase the line above.\n"
+        "CRITICAL INSTRUCTIONS:\n"
+        "1. Read the request carefully and understand what is being asked.\n"
+        "2. Think through your approach before responding. Include your reasoning, "
+        "trade-offs considered, and key decisions in your reply.\n"
+        "3. Provide a COMPLETE response — do not truncate or leave partial output.\n"
+        "4. Your response MUST be self-contained and actionable.\n"
+        "5. End your reply with this exact final line (verbatim, on its own line):\n"
+        f"{DONE_PREFIX} {req_id}\n"
     )
 
 

@@ -11,7 +11,7 @@ from ccb_protocol import (
 )
 
 
-def wrap_opencode_prompt(message: str, req_id: str) -> str:
+def wrap_mimo_prompt(message: str, req_id: str) -> str:
     message = (message or "").rstrip()
     return (
         f"{REQ_ID_PREFIX} {req_id}\n\n"
@@ -28,7 +28,7 @@ def wrap_opencode_prompt(message: str, req_id: str) -> str:
 
 
 @dataclass(frozen=True)
-class OaskdRequest:
+class MAskdRequest:
     client_id: str
     work_dir: str
     timeout_s: float
@@ -40,7 +40,7 @@ class OaskdRequest:
 
 
 @dataclass(frozen=True)
-class OaskdResult:
+class MAskdResult:
     exit_code: int
     reply: str
     req_id: str

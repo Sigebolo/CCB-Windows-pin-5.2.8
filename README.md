@@ -395,18 +395,18 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 install
 
 ### Run
 ```bash
-ccb                    # Start providers from ccb.config (default: all four)
-ccb codex gemini       # Start both
-ccb codex gemini opencode claude  # Start all four (spaces)
-ccb codex,gemini,opencode,claude  # Start all four (commas)
-ccb -r codex gemini     # Resume last session for Codex + Gemini
-ccb -a codex gemini opencode  # Auto-approval mode with multiple providers
-ccb -a -r codex gemini opencode claude  # Auto + resume for all providers
+ccb                    # Start from ccb.config (default: grok leader + claude/mimo/opencode)
+ccb grok claude        # Start two
+ccb grok claude mimo opencode  # Start default squad (spaces)
+ccb grok,claude,mimo,opencode  # Start default squad (commas)
+ccb -r grok claude     # Resume last session for Grok + Claude
+ccb -a grok claude mimo opencode  # Auto-approval mode for the squad
+ccb -a -r grok claude mimo opencode  # Auto + resume
 
 tmux tip: CCB's tmux status/pane theming is enabled only while CCB is running.
 tmux tip: press `Ctrl+b` then `Space` to cycle tmux layouts. You can press it repeatedly to keep switching layouts.
 
-Layout rule: the last provider runs in the current pane. Extras are ordered as `[cmd?, reversed providers]`; the first extra goes to the top-right, then the left column fills top-to-bottom, then the right column fills top-to-bottom. Examples: 4 panes = left2/right2, 5 panes = left2/right3.
+Layout rule: the **first** provider runs in the current pane (team leader). Extras open in config order as `[cmd?, providers[1:]]`; the first extra goes to the top-right, then the left column fills top-to-bottom, then the right column fills top-to-bottom. Examples: 4 panes = left2/right2, 5 panes = left2/right3. Default squad: `grok,claude,mimo,opencode` (Grok is leader).
 Note: `ccb up` is removed; use `ccb ...` or configure `ccb.config`.
 ```
 
@@ -423,25 +423,25 @@ Default lookup order:
 - `.ccb/ccb.config` (project)
 - `~/.ccb/ccb.config` (global)
 
-Simple format (recommended):
+Simple format (recommended; first = team leader / current pane):
 ```text
-codex,gemini,opencode,claude
+grok,claude,mimo,opencode
 ```
 
 Enable cmd pane (default title/command):
 ```text
-codex,gemini,opencode,claude,cmd
+grok,claude,mimo,opencode,cmd
 ```
 
 Advanced JSON (optional, for flags or custom cmd pane):
 ```json
 {
-  "providers": ["codex", "gemini", "opencode", "claude"],
+  "providers": ["grok", "claude", "mimo", "opencode"],
   "cmd": { "enabled": true, "title": "CCB-Cmd", "start_cmd": "bash" },
   "flags": { "auto": false, "resume": false }
 }
 ```
-Cmd pane participates in the layout as the first extra pane and does not change which AI runs in the current pane.
+Cmd pane participates in the layout as an extra pane and does not change which AI runs in the current pane (leader remains the first provider).
 
 ### Update
 ```bash

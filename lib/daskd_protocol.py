@@ -63,9 +63,13 @@ def wrap_droid_prompt(message: str, req_id: str) -> str:
     return (
         f"{REQ_ID_PREFIX} {req_id}\n\n"
         f"{message}\n\n"
-        "IMPORTANT:\n"
-        "- Reply with an execution summary, in English. Do not stay silent.\n"
-        "- End your reply with this exact final line (verbatim, on its own line):\n"
+        "CRITICAL INSTRUCTIONS:\n"
+        "1. Read the request carefully and understand what is being asked.\n"
+        "2. Think through your approach before responding. Include your reasoning, "
+        "trade-offs considered, and key decisions in your reply.\n"
+        "3. Provide a COMPLETE response — do not truncate or leave partial output.\n"
+        "4. Your response MUST be self-contained and actionable.\n"
+        "5. End your reply with this exact final line (verbatim, on its own line):\n"
         f"{DONE_PREFIX} {req_id}\n"
     )
 

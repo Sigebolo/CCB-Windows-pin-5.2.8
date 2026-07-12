@@ -6,7 +6,7 @@ Usage:
     ask <provider> [options] <message>
 
 Providers:
-    gemini, codex, opencode, droid, claude
+    gemini, codex, opencode, droid, claude, mimo, kiro, grok
 
 Modes:
     Default (async):  Background task with hook callback
@@ -32,6 +32,8 @@ from pathlib import Path
 
 PROVIDER_DISPLAY = {
     "opencode": "OpenCode",
+    "mimo": "MiMo",
+    "grok": "Grok",
 }
 
 
@@ -56,6 +58,9 @@ PROVIDER_DAEMONS = {
     "opencode": "oask",
     "droid": "dask",
     "claude": "lask",
+    "mimo": "mask",
+    "kiro": "kask",
+    "grok": "xask",
 }
 
 CALLER_SESSION_FILES = {
@@ -64,6 +69,9 @@ CALLER_SESSION_FILES = {
     "gemini": ".gemini-session",
     "opencode": ".opencode-session",
     "droid": ".droid-session",
+    "mimo": ".mimo-session",
+    "kiro": ".kiro-session",
+    "grok": ".grok-session",
 }
 
 CALLER_PANE_ENV_HINTS = {
@@ -71,6 +79,9 @@ CALLER_PANE_ENV_HINTS = {
     "gemini": ("GEMINI_TMUX_SESSION", "GEMINI_WEZTERM_PANE"),
     "opencode": ("OPENCODE_TMUX_SESSION", "OPENCODE_WEZTERM_PANE"),
     "droid": ("DROID_TMUX_SESSION", "DROID_WEZTERM_PANE"),
+    "mimo": ("MIMO_TMUX_SESSION", "MIMO_WEZTERM_PANE"),
+    "kiro": ("KIRO_TMUX_SESSION", "KIRO_WEZTERM_PANE"),
+    "grok": ("GROK_TMUX_SESSION", "GROK_WEZTERM_PANE"),
 }
 
 CALLER_ENV_HINTS = {
@@ -78,6 +89,9 @@ CALLER_ENV_HINTS = {
     "gemini": ("GEMINI_SESSION_ID", "GEMINI_RUNTIME_DIR"),
     "opencode": ("OPENCODE_SESSION_ID", "OPENCODE_RUNTIME_DIR"),
     "droid": ("DROID_SESSION_ID", "DROID_RUNTIME_DIR"),
+    "mimo": ("MIMO_SESSION_ID", "MIMO_RUNTIME_DIR"),
+    "kiro": ("KIRO_SESSION_ID", "KIRO_RUNTIME_DIR"),
+    "grok": ("GROK_SESSION_ID", "GROK_RUNTIME_DIR", "GROK_AGENT"),
 }
 
 VALID_CALLERS = set(CALLER_SESSION_FILES.keys()) | {"email", "manual"}
@@ -471,7 +485,7 @@ def _usage() -> None:
     print("Usage: ask <provider> [options] <message>", file=sys.stderr)
     print("", file=sys.stderr)
     print("Providers:", file=sys.stderr)
-    print("  gemini, codex, opencode, droid, claude", file=sys.stderr)
+    print(f"  {', '.join(PROVIDER_DAEMONS.keys())}", file=sys.stderr)
     print("", file=sys.stderr)
     print("Options:", file=sys.stderr)
     print("  -h, --help              Show this help message", file=sys.stderr)
