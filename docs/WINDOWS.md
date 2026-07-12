@@ -6,7 +6,7 @@ This machine / team runs a **Windows-compatible pin** of CCB, not necessarily th
 |------|--------|
 | **Pinned version** | `5.2.8` |
 | **Source tree** | local clone (this repo) |
-| **Intended remote** | `https://github.com/Sigebolo/ACP_Bridge.git` (team Windows pin; wipe old ACP content first) |
+| **Intended remote** | `https://github.com/Sigebolo/CCB-Windows-pin-5.2.8.git` (team Windows pin; wipe old ACP content first) |
 | **Runtime install** | `%LOCALAPPDATA%\codex-dual\` |
 | **Launcher** | `%LOCALAPPDATA%\bin\ccb.cmd` → `python …\codex-dual\ccb` |
 | **Terminal** | Native **WezTerm** (not WSL WezTerm) |
